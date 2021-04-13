@@ -38,8 +38,8 @@ import numpy as np
 from PIL import Image, ImageDraw
 from datetime import datetime
 import matplotlib.pyplot as plt
-plt.rcParams.update({'figure.max_open_warning': 0})
-plt.ion()
+# plt.rcParams.update({'figure.max_open_warning': 0})
+# plt.ion()
 
 import torch
 from torch.autograd import grad
@@ -377,7 +377,7 @@ def main():
     max_steps = 1e9
     total_steps = 0
     max_episode_steps = 1000
-    learning_starts = 2000   #2000
+    learning_starts = 2000  #2000
     episode_num = 0
 
     while total_steps < max_steps:
