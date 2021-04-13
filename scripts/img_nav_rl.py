@@ -332,7 +332,7 @@ def main():
     physics_control = vehicle.get_physics_control()
 
     env = CARLAEnv(world, vehicle, global_dict, args, generator)
-    state = env.reset()
+    # state = env.reset()
 
     max_steer_angle = np.deg2rad(physics_control.wheels[0].max_steer_angle)
     sensor_dict = {
@@ -396,7 +396,7 @@ def main():
         global_dict['state0'].z = global_transform.location.z
         global_dict['state0'].theta = np.deg2rad(global_transform.rotation.yaw)
 
-        add_noise = True if random.random() < 0.3 else False
+        add_noise = False #if random.random() < 0.3 else False
 
         for step in range(max_episode_steps):
             # t = torch.arange(0, 0.99, args.dt).unsqueeze(1).to(device)

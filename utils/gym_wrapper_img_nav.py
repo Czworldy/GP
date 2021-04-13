@@ -14,6 +14,7 @@ from torch.autograd import grad
 from .capac_controller import CapacController
 # from .post_process import visualize, draw_traj
 from .navigator_sim import get_map, replan, close2dest
+from .route import get_reference_route
 from matplotlib import pyplot as plt 
 
 import simulator
@@ -21,6 +22,7 @@ simulator.load('/home/cz/CARLA_0.9.9.4')
 import carla
 sys.path.append('/home/cz/CARLA_0.9.9.4/PythonAPI/carla')
 from agents.navigation.basic_agent import BasicAgent
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -59,16 +61,19 @@ class CARLAEnv(gym.Env):
         self.generator = generator
         self.ctrller = CapacController(self.world, self.vehicle, 30) #freq=50
         # robot action space
-        self.low_action = np.array([-1, -1])
-        self.high_action = np.array([1, 1])
-        self.action_space = spaces.Box(low=self.low_action, high=self.high_action, dtype=np.float32)
+
+        # self.low_action = np.array([-1, -1])
+        # self.high_action = np.array([1, 1])
+        # self.action_space = spaces.Box(low=self.low_action, high=self.high_action, dtype=np.float32)
+
         # robot observation space
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(7,), dtype=np.float32)
+
+        # self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(7,), dtype=np.float32)
         
-        world_map = self.world.get_map()
-        waypoint_tuple_list = world_map.get_topology()
+        self.world_map = self.world.get_map()
+        waypoint_tuple_list = self.world_map.get_topology()
         self.origin_map = get_map(waypoint_tuple_list)
-        self.spawn_points = world_map.get_spawn_points()
+        self.spawn_points = self.world_map.get_spawn_points()
         self.route_trace = None
         # environment feedback infomation
         self.state = {}
@@ -115,16 +120,17 @@ class CARLAEnv(gym.Env):
         ay = ay.data.cpu().numpy()
         a = a.data.cpu().numpy()
 
-        plt.cla()
-        plt.title("trajectory") 
-        plt.plot(x,y,'b-+')
-        # plt.show()
-        plt.axis('equal')
-        plt.pause(0.001)
+        # plt.cla()
+        # plt.title("trajectory") 
+        # plt.plot(x,y,'b-+')
+        # # plt.show()
+        # plt.axis('equal')
+        # plt.pause(0.001)
 
         trajectory = {'time':plan_time, 'x':x, 'y':y, 'vx':vx, 'vy':vy, 'ax':ax, 'ay':ay, 'a':a}
 
         self.reward = 0.
+        """oringal
         waypoint1, index1, diff_deg1 = self.find_waypoint()
         waypoint = carla.Location(x=waypoint1.location.x, y=waypoint1.location.y, z=2.0)
         self.world.debug.draw_point(waypoint, size=0.2, color=carla.Color(255,0,0), life_time=1.0)
@@ -137,19 +143,12 @@ class CARLAEnv(gym.Env):
         delta_theta = abs(self._angle_normalize(vehicle2point-vehicle_yaw))
         # error = -org_dist * np.sin(delta_theta)
         """
-        for i in range(index1, min(index1+10, len(self.route_trace)-1)):
-            location = self.route_trace[i][0].transform.location
-            x = location.x
-            y = location.y
-            waypoint = carla.Location(x=x, y=y, z=2.0)
-            self.world.debug.draw_point(waypoint, size=0.2, color=carla.Color(255,0,0), life_time=0.5)
-        """
         for i in range(30): #50
 
             if self.global_dict['collision']:
                 self.done = True
                 self.reward -= 50.  #-50
-                print('Done !')
+                print('collision !')
                 break
             if close2dest(self.vehicle, self.destination):
                 self.done = True
@@ -172,10 +171,46 @@ class CARLAEnv(gym.Env):
             self.world.tick()
             visualize(self.global_dict['view_img'], self.global_dict['nav'], self.global_dict['v0'] )
             # time.sleep(0.01)
-            
-        new_dist = np.sqrt((self.vehicle.get_transform().location.x-waypoint1.location.x)**2+(self.vehicle.get_transform().location.y-waypoint1.location.y)**2)
-        vehicle2point_new = np.arctan2(waypoint1.location.y-self.vehicle.get_transform().location.y, waypoint1.location.x-self.vehicle.get_transform().location.x)
-        vehicle_yaw_new = np.deg2rad(self.vehicle.get_transform().rotation.yaw)
+
+        waypoint1, index1, diff_deg1 = self.find_waypoint()
+        vehicle_current_x = self.vehicle.get_transform().location.x
+        vehicle_current_y = self.vehicle.get_transform().location.y
+        # vehicle_current_yaw = self.vehicle.get_transform().rotation.yaw
+        v = self.vehicle.get_velocity()
+        waypoint = self.world_map.get_waypoint(self.vehicle.get_transform().location)
+
+        trace_dist = np.sqrt((waypoint1.location.x - vehicle_current_x) ** 2 + (waypoint1.location.y - vehicle_current_y) ** 2)
+        print("trace_dist:",trace_dist,waypoint1.location.x,vehicle_current_x)
+        if waypoint is not None:
+            lane_x = waypoint.transform.location.x
+            lane_y = waypoint.transform.location.y
+            lane_offset = np.sqrt( (lane_x - vehicle_current_x) ** 2 + (lane_y - vehicle_current_y) ** 2) 
+            # print("lane_offset: %.2f"  %(lane_offset))
+            if lane_offset > 0.6 and lane_offset < 1.1:  #转弯的时候还是存在问题
+                lane_reward = 0.6 - lane_offset
+                self.reward += lane_reward
+            elif lane_offset > 1.1:
+                print('off line!')
+                self.done = True
+                lane_reward = 0
+                self.reward -= 50
+            else:
+                lane_reward = 0
+                
+        else:
+            print('waypoint not found!')
+        
+        kmh = np.sqrt(v.x**2+v.y**2) * 3.6
+        if kmh < 8:
+            kmh_reward = (kmh - 8) / 10.
+        else:
+            kmh_reward = 0
+        self.reward += kmh_reward
+
+        """
+        new_dist = np.sqrt((vehicle_current_x-waypoint1.location.x)**2+(vehicle_current_y-waypoint1.location.y)**2)
+        vehicle2point_new = np.arctan2(waypoint1.location.y - vehicle_current_y, waypoint1.location.x - vehicle_current_x)
+        vehicle_yaw_new = np.deg2rad(vehicle_current_yaw)
         delta_thet_new = abs(self._angle_normalize(vehicle2point_new-vehicle_yaw_new))
         
         # error_new = -new_dist * np.sin(delta_thet_new)
@@ -187,11 +222,12 @@ class CARLAEnv(gym.Env):
 
         self.reward += dist_reward
         self.reward += theta_reward
-        v = self.vehicle.get_velocity()
+        
+
         v0 = np.sqrt(v.x**2+v.y**2+v.z**2) / 4. #/4
         self.reward += v0
-
-        # print( "reward:%.2f" % (self.reward) )
+        """
+        print( "reward: %.2f , lane_reward: %.2f , kmh_reward: %.2f" % (self.reward, lane_reward, kmh_reward) )
 
         self.state['img_nav'] = copy.deepcopy(self.global_dict['img_nav'])
         self.state['v0'] = self.global_dict['v0'] if self.global_dict['v0'] > 4 else 4
@@ -236,10 +272,12 @@ class CARLAEnv(gym.Env):
         return self.route_trace[index][0].transform, index, np.rad2deg(abs(wp_yaw-yaw))
         
     def reset(self):
-        start_point = random.choice(self.spawn_points)
+        # start_point = random.choice(self.spawn_points)
+        # self.destination = random.choice(self.spawn_points)
         # yujiyu
-        # start_point = self.spawn_points[2]
-        self.destination = random.choice(self.spawn_points)
+        start_point = self.spawn_points[0]
+        ref_route = get_reference_route(self.world_map, self.vehicle, 500, 0.5)
+        self.destination = ref_route[-1][0].transform
         
         self.vehicle.set_transform(start_point)
         for i in range(10):
@@ -247,12 +285,18 @@ class CARLAEnv(gym.Env):
         
         self.global_dict['plan_map'], self.destination = replan(self.agent, self.destination, copy.deepcopy(self.origin_map), self.spawn_points)
         
+        show_plan = cv2.cvtColor(np.asarray(self.global_dict['plan_map']), cv2.COLOR_BGR2RGB)
+        cv2.namedWindow('plan_map', 0)    
+        cv2.resizeWindow('plan_map', 600, 600)   # 自己设定窗口图片的大小
+        cv2.imshow('plan_map', show_plan)
+        cv2.waitKey(1)
         self.global_dict['collision'] = False
         
-        start_waypoint = self.agent._map.get_waypoint(self.agent._vehicle.get_location())
-        end_waypoint = self.agent._map.get_waypoint(self.destination.location)
+        # start_waypoint = self.agent._map.get_waypoint(self.agent._vehicle.get_location())
+        # end_waypoint = self.agent._map.get_waypoint(self.destination.location)
 
-        self.route_trace = self.agent._trace_route(start_waypoint, end_waypoint)
+        # self.route_trace = self.agent._trace_route(start_waypoint, end_waypoint)
+        self.route_trace = ref_route
         start_point.rotation = self.route_trace[0][0].transform.rotation
         self.vehicle.set_transform(start_point)
         for i in range(10):
