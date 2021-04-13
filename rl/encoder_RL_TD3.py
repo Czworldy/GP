@@ -84,14 +84,14 @@ class TD3():
         self.value_criterion = nn.MSELoss()
         
         policy_lr = 1e-5
-        value_lr  = 1e-5
+        value_lr  = 1e-4
         
         # self.value_optimizer1 = optim.SGD(self.value_net1.parameters(), lr=value_lr, momentum=0.9, weight_decay=5e-4)
         # self.value_optimizer2 = optim.SGD(self.value_net2.parameters(), lr=value_lr, momentum=0.9, weight_decay=5e-4)
         # self.policy_optimizer = optim.SGD(self.policy_net.parameters(), lr=policy_lr, momentum=0.9, weight_decay=5e-4)
-        self.value_optimizer1 = optim.SGD(self.value_net1.parameters(), lr=value_lr, weight_decay=5e-4)
-        self.value_optimizer2 = optim.SGD(self.value_net2.parameters(), lr=value_lr, weight_decay=5e-4)
-        self.policy_optimizer = optim.SGD(self.policy_net.parameters(), lr=policy_lr, weight_decay=5e-4)
+        self.value_optimizer1 = optim.Adam(self.value_net1.parameters(), lr=value_lr)
+        self.value_optimizer2 = optim.Adam(self.value_net2.parameters(), lr=value_lr)
+        self.policy_optimizer = optim.Adam(self.policy_net.parameters(), lr=policy_lr)
         
         self.replay_buffer = ReplayBuffer(self.buffer_size)
         
@@ -104,8 +104,8 @@ class TD3():
             
         torch.save(self.value_net1.state_dict(), '%s/%s_value_net1.pkl' % (directory, filename))
         torch.save(self.value_net2.state_dict(), '%s/%s_value_net2.pkl' % (directory, filename))
-        # if not self.is_fix_policy_net:
-        torch.save(self.policy_net.state_dict(), '%s/%s_policy_net.pkl' % (directory, filename))
+        if not self.is_fix_policy_net:
+            torch.save(self.policy_net.state_dict(), '%s/%s_policy_net.pkl' % (directory, filename))
 
     def load(self, directory, filename):
         self.value_net1.load_state_dict(torch.load('%s/%s_value_net1.pkl' % (directory, filename)))
@@ -168,16 +168,16 @@ class TD3():
 
         self.value_optimizer1.zero_grad()
         value_loss1.backward()
-        torch.nn.utils.clip_grad_value_(self.value_net1.parameters(), clip_value=1)
+        # torch.nn.utils.clip_grad_value_(self.value_net1.parameters(), clip_value=1)
         self.value_optimizer1.step()
     
         self.value_optimizer2.zero_grad()
         value_loss2.backward()
-        torch.nn.utils.clip_grad_value_(self.value_net2.parameters(), clip_value=1)
+        # torch.nn.utils.clip_grad_value_(self.value_net2.parameters(), clip_value=1)
         self.value_optimizer2.step()
     
-        # if step % self.policy_freq == 0 and self.is_fix_policy_net == False:
-        if step % self.policy_freq == 0:
+        if step % self.policy_freq == 0 and self.is_fix_policy_net == False:
+        # if step % self.policy_freq == 0:
             print("update policy net!")
             policy_loss = self.value_net1(state_img, state_v0, self.policy_net(state_img, state_v0))
             policy_loss = -policy_loss.mean()

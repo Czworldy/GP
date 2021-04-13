@@ -13,6 +13,7 @@ def get_reference_route(town_map, vehicle, distance_range, sampling_resolution):
     return get_reference_route_wrt_waypoint(waypoint, sampling_resolution, sampling_number)
 
 def get_reference_route_wrt_waypoint(waypoint, sampling_resolution, sampling_number):
+    # random.seed(1)
     next_waypoint = waypoint
     reference_route = [(next_waypoint, RoadOption.LANEFOLLOW)]
     for i in range(1, sampling_number):

@@ -152,7 +152,7 @@ class CARLAEnv(gym.Env):
                 break
             if close2dest(self.vehicle, self.destination):
                 self.done = True
-                self.reward += 100.
+                # self.reward += 10.   # reward += 100
                 print('Success !')
                 break
             
@@ -177,34 +177,40 @@ class CARLAEnv(gym.Env):
         vehicle_current_y = self.vehicle.get_transform().location.y
         # vehicle_current_yaw = self.vehicle.get_transform().rotation.yaw
         v = self.vehicle.get_velocity()
-        waypoint = self.world_map.get_waypoint(self.vehicle.get_transform().location)
+        # waypoint = self.world_map.get_waypoint(self.vehicle.get_transform().location)
 
         trace_dist = np.sqrt((waypoint1.location.x - vehicle_current_x) ** 2 + (waypoint1.location.y - vehicle_current_y) ** 2)
-        print("trace_dist:",trace_dist,waypoint1.location.x,vehicle_current_x)
-        if waypoint is not None:
-            lane_x = waypoint.transform.location.x
-            lane_y = waypoint.transform.location.y
+        
+        if waypoint1 is not None:
+            lane_x = waypoint1.location.x
+            lane_y = waypoint1.location.y
             lane_offset = np.sqrt( (lane_x - vehicle_current_x) ** 2 + (lane_y - vehicle_current_y) ** 2) 
             # print("lane_offset: %.2f"  %(lane_offset))
-            if lane_offset > 0.6 and lane_offset < 1.1:  #转弯的时候还是存在问题
-                lane_reward = 0.6 - lane_offset
-                self.reward += lane_reward
-            elif lane_offset > 1.1:
+            # if lane_offset > 0.7 and lane_offset <= 1.8:  #转弯的时候还是存在问题 route.py 解决
+            if lane_offset <= 1.5:
+                lane_reward = 0.7 - lane_offset
+                
+            elif lane_offset > 1.8 and lane_offset <= 3.3:
+                lane_reward = 3*(0.6 - lane_offset)
+            elif lane_offset > 3.3:
                 print('off line!')
                 self.done = True
                 lane_reward = 0
-                self.reward -= 50
+                self.reward -= 25
             else:
                 lane_reward = 0
                 
         else:
             print('waypoint not found!')
+            lane_reward = -4
+        self.reward += lane_reward
         
         kmh = np.sqrt(v.x**2+v.y**2) * 3.6
-        if kmh < 8:
-            kmh_reward = (kmh - 8) / 10.
-        else:
-            kmh_reward = 0
+        # if kmh < 10:
+        #     kmh_reward = (kmh - 10) / 10.
+        # else:
+        #     kmh_reward = (kmh - 10) / 10.
+        kmh_reward = (kmh - 10) / 10.
         self.reward += kmh_reward
 
         """
@@ -227,8 +233,8 @@ class CARLAEnv(gym.Env):
         v0 = np.sqrt(v.x**2+v.y**2+v.z**2) / 4. #/4
         self.reward += v0
         """
-        print( "reward: %.2f , lane_reward: %.2f , kmh_reward: %.2f" % (self.reward, lane_reward, kmh_reward) )
-
+        print( "reward: %.2f , lane_reward: %.2f , kmh_reward: %.2f , trace_dist: %.2f" % (self.reward, lane_reward, kmh_reward, trace_dist) )
+        # print("trace_dist: %.2f" % (trace_dist))
         self.state['img_nav'] = copy.deepcopy(self.global_dict['img_nav'])
         self.state['v0'] = self.global_dict['v0'] if self.global_dict['v0'] > 4 else 4
         #self.global_dict['ts']
@@ -275,13 +281,15 @@ class CARLAEnv(gym.Env):
         # start_point = random.choice(self.spawn_points)
         # self.destination = random.choice(self.spawn_points)
         # yujiyu
-        start_point = self.spawn_points[0]
-        ref_route = get_reference_route(self.world_map, self.vehicle, 500, 0.5)
-        self.destination = ref_route[-1][0].transform
-        
+        start_point = self.spawn_points[1]  #1
         self.vehicle.set_transform(start_point)
         for i in range(10):
             self.world.tick()
+
+        ref_route = get_reference_route(self.world_map, self.vehicle, 500, 0.1)
+        self.destination = ref_route[-1][0].transform
+        
+
         
         self.global_dict['plan_map'], self.destination = replan(self.agent, self.destination, copy.deepcopy(self.origin_map), self.spawn_points)
         

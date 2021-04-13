@@ -102,7 +102,7 @@ log_path = '/home/cz/result/log/'+args.name+'/'
 ckpt_path = '/home/cz/result/saved_models/%s' % args.name
 logger = SummaryWriter(log_dir=log_path)
 
-model = TD3(args=args,buffer_size=3e4, noise_decay_steps=3e3, batch_size=32, logger=logger, policy_freq=4, is_fix_policy_net=False) #48 85
+model = TD3(args=args,buffer_size=3e4, noise_decay_steps=3e3, batch_size=32, logger=logger, policy_freq=4, is_fix_policy_net=True) #48 85
 # encoder = EncoderWithV(input_dim=6, out_dim=args.vector_dim).to(device)
 model.policy_net.load_state_dict(torch.load('/home/cz/Downloads/learning-uncertainty-master/scripts/encoder_e2e.pth'))
 
@@ -441,7 +441,7 @@ def main():
             if len(model.replay_buffer) > max(learning_starts, model.batch_size):
                 # print("Start Train:")
                 time_s = time.time()
-                model.train_step(total_steps, noise_std = 0.2, noise_clip = 0.5) #noise_std = 0.2
+                model.train_step(total_steps, noise_std = 0.05, noise_clip = 0.05) #noise_std = 0.2 noise_clip = 0.5
                 time_e = time.time()
                 print('time:', time_e - time_s)
             
@@ -462,7 +462,7 @@ def main():
                 else:
                     print('Fail')
                 # last_episode_reward = episode_reward
-                if episode_num % 50 == 0:
+                if episode_num % 5 == 0:
                     model.save(directory=ckpt_path, filename=str(episode_num)) 
                 break
   
