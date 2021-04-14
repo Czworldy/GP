@@ -104,7 +104,7 @@ logger = SummaryWriter(log_dir=log_path)
 
 model = TD3(args=args,buffer_size=3e4, noise_decay_steps=3e3, batch_size=32, logger=logger, policy_freq=4, is_fix_policy_net=True) #48 85
 # encoder = EncoderWithV(input_dim=6, out_dim=args.vector_dim).to(device)
-model.policy_net.load_state_dict(torch.load('/home/cz/Downloads/learning-uncertainty-master/scripts/encoder_e2e.pth'))
+model.policy_net.load_state_dict(torch.load('/home/cz/Downloads/learning-uncertainty-master/scripts/encoder.pth'))
 
 generator = Generator(input_dim=1+1+args.vector_dim, output=2).to(device)
 generator.load_state_dict(torch.load('/home/cz/Downloads/learning-uncertainty-master/scripts/generator_e2e.pth'))
@@ -118,12 +118,12 @@ img_transforms = [
 ]
 img_trans = transforms.Compose(img_transforms)
         
-class Param(object):
-    def __init__(self):
-        self.longitudinal_length = args.scale
-        self.ksize = 21
+# class Param(object):
+#     def __init__(self):
+#         self.longitudinal_length = args.scale
+#         self.ksize = 21
         
-param = Param()
+# param = Param()
 sensor = Sensor(sensor_dict['camera']['transform'], config['camera'])
 sensor_master = CarlaSensorMaster(sensor, sensor_dict['camera']['transform'], binded=True)
 
@@ -376,7 +376,7 @@ def main():
     episode_reward = 0
     max_steps = 1e9
     total_steps = 0
-    max_episode_steps = 1000
+    max_episode_steps = 10000
     learning_starts = 2000  #2000
     episode_num = 0
 
@@ -441,7 +441,7 @@ def main():
             if len(model.replay_buffer) > max(learning_starts, model.batch_size):
                 # print("Start Train:")
                 time_s = time.time()
-                model.train_step(total_steps, noise_std = 0.05, noise_clip = 0.05) #noise_std = 0.2 noise_clip = 0.5
+                model.train_step(total_steps, noise_std = 0.1, noise_clip = 0.05) #noise_std = 0.2 noise_clip = 0.5
                 time_e = time.time()
                 print('time:', time_e - time_s)
             

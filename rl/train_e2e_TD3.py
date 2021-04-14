@@ -9,8 +9,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from .common import ReplayBuffer,GaussianExploration,soft_update
-from .model import QNet,PolicyNet,CNNNorm, QNet2
+from .common import ReplayBuffer, GaussianExploration, soft_update
+from .my_model import ValueNet, PolicyNet
 
 from tensorboardX import SummaryWriter
 
@@ -57,16 +57,14 @@ class TD3():
             max_sigma=0.5, min_sigma=0.05,
             decay_period=self.noise_decay_steps)
         
-        action_dim = 2
-        self.value_net1 = QNet2(action_dim).to(device)
-        self.value_net2 = QNet2(action_dim).to(device)
-        #self.policy_net = PolicyNet(action_dim).to(device)
-        self.policy_net = CNNNorm(input_dim=1, out_dim=2).to(device)
+        # action_dim = 2
+        self.value_net1 = ValueNet().to(device)
+        self.value_net2 = ValueNet().to(device)
+        self.policy_net = PolicyNet(input_dim=6, out_dim=2).to(device)
         
-        self.target_value_net1 = QNet2(action_dim).to(device)
-        self.target_value_net2 = QNet2(action_dim).to(device)
-        #self.target_policy_net = PolicyNet(action_dim).to(device)
-        self.target_policy_net = CNNNorm(input_dim=1, out_dim=2).to(device)
+        self.target_value_net1 = ValueNet().to(device)
+        self.target_value_net2 = ValueNet().to(device)
+        self.target_policy_net = PolicyNet(input_dim=6, out_dim=2).to(device)
         """
         try:
             self.load(directory=self.load_dir, filename=self.env_name)
@@ -171,11 +169,6 @@ class TD3():
 
             policy_loss = self.value_net1(state, self.policy_net(state))
             policy_loss = -policy_loss.mean() 
-
-            # yujiyu error : only use value_net1
-            # policy_loss_1 = self.value_net1(state, self.policy_net(state))
-            # policy_loss_2 = self.value_net2(state, self.policy_net(state))
-            # policy_loss = -torch.min(policy_loss_1, policy_loss_2).mean()
 
             if self.logger is not None:
                 self.logger.add_scalar('policy_loss', policy_loss.item(), self.train_steps)

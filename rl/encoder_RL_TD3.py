@@ -127,7 +127,7 @@ class TD3():
         # lis = [item['v0']/self.args.max_speed for item in state]
         # print(lis)
         state_img      = torch.cat([item['img_nav'].unsqueeze(0) for item in state], dim=0).to(device)
-        print(state_img.shape)
+        # print(state_img.shape)
         # state_img      = state_img.unsqueeze(0).to(device)
         # state_img      = state['img_nav'].unsqueeze(0).to(device)
         state_v0       = torch.FloatTensor([item['v0']/self.args.max_speed for item in state]).unsqueeze(1).to(device)
