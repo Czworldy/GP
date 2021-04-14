@@ -6,6 +6,7 @@ import numpy as np
 import PIL.Image as Image
 from PIL import ImageDraw
 import matplotlib.pyplot as plt
+from .route import get_reference_route
 scale = 12.0
 x_offset = 800#1500#2500
 y_offset = 1000#0#3000
@@ -33,20 +34,20 @@ def get_map(waypoint_tuple_list):
     """
     return origin_map
 
-def draw_route(agent, destination, origin_map, spawn_points, route_trace):
+def draw_route(town_map, vehicle, agent, destination, origin_map, spawn_points):
     start_waypoint = agent._map.get_waypoint(agent._vehicle.get_location())
     end_waypoint = agent._map.get_waypoint(destination.location)
     while True:
         new_destination = destination
         # route_trace = agent._trace_route(start_waypoint, end_waypoint)
-
+        route_trace = get_reference_route(town_map, vehicle, 500, 0.02)
         route_trace_list = []
         dist = 0.
 
         road_ids = [route_trace[0][0].road_id]
         continue_flag = False
         for i in range(len(route_trace)-1):
-            road_id = route_trace[i][0].road_id
+            road_id = route_trace[i][0].road_id  #会卡？
             if road_id != road_ids[-1]:
                 if road_id in road_ids:
                     continue_flag = True
@@ -72,7 +73,7 @@ def draw_route(agent, destination, origin_map, spawn_points, route_trace):
 
     draw = ImageDraw.Draw(origin_map)
     draw.line(route_trace_list, 'red', width=30)
-    return origin_map, new_destination
+    return origin_map, route_trace[-1][0].transform, route_trace
 
 def get_nav(vehicle, plan_map, town=1):
     if town == 1:
@@ -110,15 +111,15 @@ def get_big_nav(vehicle, plan_map):
     nav = cv2.cvtColor(np.asarray(nav), cv2.COLOR_BGR2RGB)
     return nav
 
-def replan(agent, destination, origin_map, spawn_points, route_trace):
+def replan(twon_map, vehicle, agent, destination, origin_map, spawn_points):
     agent.set_destination((destination.location.x,
                            destination.location.y,
                            destination.location.z))
-    plan_map, new_destination = draw_route(agent, destination, origin_map, spawn_points, route_trace)
+    plan_map, new_destination, ref_route = draw_route(twon_map, vehicle,agent, destination, origin_map, spawn_points)
     agent.set_destination((new_destination.location.x,
                            new_destination.location.y,
                            new_destination.location.z))
-    return plan_map, new_destination
+    return plan_map, new_destination, ref_route
 
 def replan2(agent, destination, origin_map):
     agent.set_destination(agent.vehicle.get_location(), destination.location, clean=True)

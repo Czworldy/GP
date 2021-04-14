@@ -84,7 +84,7 @@ class TD3():
         self.value_criterion = nn.MSELoss()
         
         policy_lr = 1e-5
-        value_lr  = 1e-4
+        value_lr  = 1e-5
         
         # self.value_optimizer1 = optim.SGD(self.value_net1.parameters(), lr=value_lr, momentum=0.9, weight_decay=5e-4)
         # self.value_optimizer2 = optim.SGD(self.value_net2.parameters(), lr=value_lr, momentum=0.9, weight_decay=5e-4)
@@ -168,12 +168,12 @@ class TD3():
 
         self.value_optimizer1.zero_grad()
         value_loss1.backward()
-        # torch.nn.utils.clip_grad_value_(self.value_net1.parameters(), clip_value=1)
+        torch.nn.utils.clip_grad_value_(self.value_net1.parameters(), clip_value=1)
         self.value_optimizer1.step()
     
         self.value_optimizer2.zero_grad()
         value_loss2.backward()
-        # torch.nn.utils.clip_grad_value_(self.value_net2.parameters(), clip_value=1)
+        torch.nn.utils.clip_grad_value_(self.value_net2.parameters(), clip_value=1)
         self.value_optimizer2.step()
     
         if step % self.policy_freq == 0 and self.is_fix_policy_net == False:

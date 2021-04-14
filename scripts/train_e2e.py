@@ -293,11 +293,11 @@ def main():
 
             model.replay_buffer.push(state, action, reward, next_state, done)
             if len(model.replay_buffer) > max(learning_starts, model.batch_size):
-                # print("Start Train:")
-                time_s = time.time()
+                print("Start Train:")
+                # time_s = time.time()
                 model.train_step(total_steps, noise_std = 0.05, noise_clip = 0.05) #noise_std = 0.2 noise_clip = 0.5
-                time_e = time.time()
-                print('time:', time_e - time_s)
+                # time_e = time.time()
+                # print('time:', time_e - time_s)
             
             state = next_state
             episode_reward += reward

@@ -81,7 +81,7 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 # device = torch.device('cpu')
 
 parser = argparse.ArgumentParser(description='Params')
-parser.add_argument('--name', type=str, default="rl-train-img-nav-01", help='name of the script')
+parser.add_argument('--name', type=str, default="rl-train-img-nav-02", help='name of the script')
 parser.add_argument('-d', '--data', type=int, default=1, help='data index')
 parser.add_argument('-s', '--save', type=bool, default=False, help='save result')
 parser.add_argument('--width', type=int, default=400, help='image width')
@@ -102,10 +102,15 @@ log_path = '/home/cz/result/log/'+args.name+'/'
 ckpt_path = '/home/cz/result/saved_models/%s' % args.name
 logger = SummaryWriter(log_dir=log_path)
 
-model = TD3(args=args,buffer_size=3e4, noise_decay_steps=3e3, batch_size=32, logger=logger, policy_freq=4, is_fix_policy_net=True) #48 85
+model = TD3(args=args,buffer_size=1e5, noise_decay_steps=3e3, batch_size=32, logger=logger, policy_freq=2, is_fix_policy_net=False) #48 85
 # encoder = EncoderWithV(input_dim=6, out_dim=args.vector_dim).to(device)
-model.policy_net.load_state_dict(torch.load('/home/cz/Downloads/learning-uncertainty-master/scripts/encoder.pth'))
-
+try:
+    model.policy_net.load_state_dict(torch.load('/home/cz/Downloads/learning-uncertainty-master/scripts/encoder.pth'))
+    model.value_net1.load_state_dict(torch.load('/home/cz/result/saved_models/rl-train-img-nav-01/25_value_net1.pkl'))
+    model.value_net2.load_state_dict(torch.load('/home/cz/result/saved_models/rl-train-img-nav-01/25_value_net2.pkl'))
+    print("load success!")
+except:
+    print("load failed!")
 generator = Generator(input_dim=1+1+args.vector_dim, output=2).to(device)
 generator.load_state_dict(torch.load('/home/cz/Downloads/learning-uncertainty-master/scripts/generator_e2e.pth'))
 generator.eval()
@@ -396,7 +401,7 @@ def main():
         global_dict['state0'].z = global_transform.location.z
         global_dict['state0'].theta = np.deg2rad(global_transform.rotation.yaw)
 
-        add_noise = False #if random.random() < 0.3 else False
+        add_noise = True if random.random() < 0.05 else False
 
         for step in range(max_episode_steps):
             # t = torch.arange(0, 0.99, args.dt).unsqueeze(1).to(device)
@@ -439,11 +444,11 @@ def main():
 
             model.replay_buffer.push(state, action, reward, next_state, done)
             if len(model.replay_buffer) > max(learning_starts, model.batch_size):
-                # print("Start Train:")
-                time_s = time.time()
+                print("Start Train:")
+                # time_s = time.time()
                 model.train_step(total_steps, noise_std = 0.1, noise_clip = 0.05) #noise_std = 0.2 noise_clip = 0.5
-                time_e = time.time()
-                print('time:', time_e - time_s)
+                # time_e = time.time()
+                # print('time:', time_e - time_s)
             
             state = next_state
             episode_reward += reward
