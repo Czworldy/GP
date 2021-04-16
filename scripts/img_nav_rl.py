@@ -81,7 +81,7 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 # device = torch.device('cpu')
 
 parser = argparse.ArgumentParser(description='Params')
-parser.add_argument('--name', type=str, default="rl-train-img-nav-02", help='name of the script')
+parser.add_argument('--name', type=str, default="rl-train-img-nav-07-valuetrain", help='name of the script')
 parser.add_argument('-d', '--data', type=int, default=1, help='data index')
 parser.add_argument('-s', '--save', type=bool, default=False, help='save result')
 parser.add_argument('--width', type=int, default=400, help='image width')
@@ -91,7 +91,7 @@ parser.add_argument('--max_t', type=float, default=3., help='max time')
 parser.add_argument('--vector_dim', type=int, default=64, help='vector dim')
 parser.add_argument('--max_speed', type=float, default=10., help='max speed')
 parser.add_argument('--scale', type=float, default=25., help='longitudinal length')
-parser.add_argument('--dt', type=float, default=0.05, help='discretization minimum time interval')
+parser.add_argument('--dt', type=float, default=0.01, help='discretization minimum time interval')
 parser.add_argument('--rnn_steps', type=int, default=10, help='rnn readout steps')
 args = parser.parse_args()
 
@@ -102,12 +102,13 @@ log_path = '/home/cz/result/log/'+args.name+'/'
 ckpt_path = '/home/cz/result/saved_models/%s' % args.name
 logger = SummaryWriter(log_dir=log_path)
 
-model = TD3(args=args,buffer_size=1e5, noise_decay_steps=3e3, batch_size=32, logger=logger, policy_freq=2, is_fix_policy_net=False) #48 85
+model = TD3(args=args,buffer_size=1e5, noise_decay_steps=3e3, batch_size=32, logger=logger, policy_freq=2, is_fix_policy_net=True) #48 85
 # encoder = EncoderWithV(input_dim=6, out_dim=args.vector_dim).to(device)
 try:
     model.policy_net.load_state_dict(torch.load('/home/cz/Downloads/learning-uncertainty-master/scripts/encoder.pth'))
-    model.value_net1.load_state_dict(torch.load('/home/cz/result/saved_models/rl-train-img-nav-01/25_value_net1.pkl'))
-    model.value_net2.load_state_dict(torch.load('/home/cz/result/saved_models/rl-train-img-nav-01/25_value_net2.pkl'))
+    # model.policy_net.load_state_dict(torch.load('/home/cz/result/saved_models/rl-train-img-nav-04-train/115_policy_net.pkl'))
+    # model.value_net1.load_state_dict(torch.load('/home/cz/result/saved_models/rl-train-img-nav-06-valuetrain/160_value_net1.pkl'))
+    # model.value_net2.load_state_dict(torch.load('/home/cz/result/saved_models/rl-train-img-nav-06-valuetrain/160_value_net2.pkl'))
     print("load success!")
 except:
     print("load failed!")
@@ -381,8 +382,8 @@ def main():
     episode_reward = 0
     max_steps = 1e9
     total_steps = 0
-    max_episode_steps = 10000
-    learning_starts = 2000  #2000
+    max_episode_steps = 1000
+    learning_starts = 64  #2000
     episode_num = 0
 
     while total_steps < max_steps:
@@ -401,7 +402,7 @@ def main():
         global_dict['state0'].z = global_transform.location.z
         global_dict['state0'].theta = np.deg2rad(global_transform.rotation.yaw)
 
-        add_noise = True if random.random() < 0.05 else False
+        add_noise = True if random.random() < 0.2 else False
 
         for step in range(max_episode_steps):
             # t = torch.arange(0, 0.99, args.dt).unsqueeze(1).to(device)
@@ -446,7 +447,7 @@ def main():
             if len(model.replay_buffer) > max(learning_starts, model.batch_size):
                 print("Start Train:")
                 # time_s = time.time()
-                model.train_step(total_steps, noise_std = 0.1, noise_clip = 0.05) #noise_std = 0.2 noise_clip = 0.5
+                model.train_step(total_steps, noise_std = 0.1, noise_clip = 0.2) #noise_std = 0.2 noise_clip = 0.5
                 # time_e = time.time()
                 # print('time:', time_e - time_s)
             
@@ -467,7 +468,7 @@ def main():
                 else:
                     print('Fail')
                 # last_episode_reward = episode_reward
-                if episode_num % 5 == 0:
+                if episode_num % 20 == 0:
                     model.save(directory=ckpt_path, filename=str(episode_num)) 
                 break
   

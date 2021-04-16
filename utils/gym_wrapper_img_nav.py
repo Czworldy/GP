@@ -26,6 +26,16 @@ from agents.navigation.basic_agent import BasicAgent
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+def get_junctions(waypoint_pairs):
+    waypoint_ids = []
+    waypoints = []
+    for wp_pair in waypoint_pairs:
+        for wp in wp_pair:
+            if wp.id not in waypoint_ids:
+                waypoint_ids.append(wp.id)
+                waypoints.append(wp)
+    return waypoints
+
 def visualize(img, nav, speed):
     text = "speed: "+str(round(3.6*speed, 1))+' km/h'
     cv2.putText(img, text, (20, 30), cv2.FONT_HERSHEY_PLAIN, 2.0, (255, 255, 255), 2)    
@@ -71,8 +81,8 @@ class CARLAEnv(gym.Env):
         # self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(7,), dtype=np.float32)
         
         self.world_map = self.world.get_map()
-        waypoint_tuple_list = self.world_map.get_topology()
-        self.origin_map = get_map(waypoint_tuple_list)
+        self.waypoint_tuple_list = self.world_map.get_topology()
+        self.origin_map = get_map(self.waypoint_tuple_list)
         self.spawn_points = self.world_map.get_spawn_points()
         self.route_trace = None
         # environment feedback infomation
@@ -112,8 +122,8 @@ class CARLAEnv(gym.Env):
         sign = torch.sign(torch.cos(theta_a-theta_v))
         a = torch.mul(torch.norm(output_axy, dim=1), sign.flatten()).unsqueeze(1)
 
-        vx = vx.data.cpu().numpy()*1.5
-        vy = vy.data.cpu().numpy()*1.5
+        vx = vx.data.cpu().numpy()
+        vy = vy.data.cpu().numpy()
         x = x.data.cpu().numpy()
         y = y.data.cpu().numpy()
         ax = ax.data.cpu().numpy()
@@ -159,9 +169,9 @@ class CARLAEnv(gym.Env):
                 self.reward -= 10.  #-50
                 print('collision !')
                 break
-            if close2dest(self.vehicle, self.destination):
+            if close2dest(self.vehicle, self.destination, dist=3.3):
                 self.done = True
-                self.reward += 10.   # reward += 100
+                self.reward += 4.   # reward += 100
                 print('Success !')
                 break
             
@@ -172,8 +182,8 @@ class CARLAEnv(gym.Env):
             # control_time = time.time()
             # df = control_time - t
             dt = i/100.0
-            index = int((dt/self.args.max_t)//self.args.dt) + 8
-            if index > 0.99//self.args.dt-10:
+            index = int((dt/self.args.max_t)//self.args.dt) + 1 #+ 8 ??????????????????????????????
+            if index > 0.99//self.args.dt:
                 continue
             
             control = self.ctrller.run_step(trajectory, index, self.global_dict['state0'])
@@ -199,18 +209,26 @@ class CARLAEnv(gym.Env):
         lane_offset = np.sqrt( (lane_x - vehicle_current_x) ** 2 + (lane_y - vehicle_current_y) ** 2) 
         # print("lane_offset: %.2f"  %(lane_offset))
         # if lane_offset > 0.7 and lane_offset <= 1.8:  #转弯的时候还是存在问题 route.py 解决
-        if lane_offset <= 1.8:
-            lane_reward = (1.8 - lane_offset)/2
+
+
+        # if lane_offset <= 1.8:
+        #     lane_reward = (1.8 - lane_offset)/2
             
-        elif lane_offset > 1.8 and lane_offset <= 3.3:
-            lane_reward = 0
-        elif lane_offset > 3.3:
-            print('off line!')
-            self.done = True
-            lane_reward = 0
-            self.reward -= 5
+        # elif lane_offset > 1.8 and lane_offset <= 3.3:
+        #     lane_reward = 0
+        # elif lane_offset > 3.3:
+        #     print('off line!')
+        #     self.done = True
+        #     lane_reward = 0
+        #     self.reward -= 5
+        # else:
+        #     lane_reward = 0
+        if lane_offset < 3.3:
+            lane_reward = -lane_offset
         else:
-            lane_reward = 0
+            lane_reward = -4
+            self.done = True
+        
         # if lane_offset > 3.3:
         #     print('off line!')
         #     self.done = True
@@ -218,19 +236,21 @@ class CARLAEnv(gym.Env):
         # else:
         #     lane_reward = 0.2/(lane_offset+0.2)
         self.reward += lane_reward
-        yaw_reward = 0.05/(0.2+abs(np.deg2rad(diff_deg1)))
-        self.reward += yaw_reward
+        # yaw_reward = 0.05/(0.2+abs(np.deg2rad(diff_deg1)))
+        yaw_reward = -3*abs(np.deg2rad(diff_deg1)) / np.pi
+        # self.reward += yaw_reward
         
-        kmh = np.sqrt(v.x**2+v.y**2) * 3.6
+        ms = np.sqrt(v.x**2+v.y**2)
+        self.reward += ms/10.
         # if kmh < 10:
         #     kmh_reward = (kmh - 10) / 10.
         # else:
         #     kmh_reward = (kmh - 10) / 10.
-        if kmh < 2:
-            kmh_reward = -0.5
-        else:
-            kmh_reward = kmh / 100.
-        self.reward += kmh_reward
+        # if ms < 1:
+        #     kmh_reward = -0.5
+        # else:
+        #     kmh_reward = kmh / 100.
+        # self.reward += kmh_reward
 
         """
         new_dist = np.sqrt((vehicle_current_x-waypoint1.location.x)**2+(vehicle_current_y-waypoint1.location.y)**2)
@@ -252,7 +272,7 @@ class CARLAEnv(gym.Env):
         v0 = np.sqrt(v.x**2+v.y**2+v.z**2) / 4. #/4
         self.reward += v0
         """
-        print( "reward: %.2f , lane_reward: %.2f , kmh_reward: %.2f , trace_dist: %.2f, yaw:%.2f , lane_reward:%.2f" % (self.reward, lane_reward, kmh_reward, trace_dist,yaw_reward,lane_reward) )
+        print( "reward: %.2f , lane_reward: %.2f , ms_reward: %.2f , trace_dist: %.2f, yaw:%.2f , lane_reward:%.2f" % (self.reward, lane_reward, 0.5*ms, trace_dist,yaw_reward,lane_reward) )
         # print("trace_dist: %.2f" % (trace_dist))
         self.state['img_nav'] = copy.deepcopy(self.global_dict['img_nav'])
         self.state['v0'] = self.global_dict['v0'] if self.global_dict['v0'] > 4 else 4
@@ -300,12 +320,15 @@ class CARLAEnv(gym.Env):
         # start_point = random.choice(self.spawn_points)
         # self.destination = random.choice(self.spawn_points)
         # yujiyu
-        start_point = self.spawn_points[1]  #1
+        junctions = get_junctions(self.waypoint_tuple_list)
+
+        # start_point = self.spawn_points[1]  #1
+        start_point = random.choice(junctions).transform
         self.vehicle.set_transform(start_point)
-        for i in range(20):
+        for i in range(10):
             self.world.tick()
 
-        ref_route = get_reference_route(self.world_map, self.vehicle, 500, 0.04)
+        ref_route = get_reference_route(self.world_map, self.vehicle, 50, 0.04)
         self.destination = ref_route[-1][0].transform
         
 
@@ -324,7 +347,7 @@ class CARLAEnv(gym.Env):
         self.route_trace = ref_route
         start_point.rotation = self.route_trace[0][0].transform.rotation
         self.vehicle.set_transform(start_point)
-        for i in range(20):
+        for i in range(10):
             self.world.tick()
 
         self.state['img_nav'] = copy.deepcopy(self.global_dict['img_nav'])

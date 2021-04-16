@@ -35,19 +35,32 @@ def get_map(waypoint_tuple_list):
     return origin_map
 
 def draw_route(town_map, vehicle, agent, destination, origin_map, spawn_points):
-    start_waypoint = agent._map.get_waypoint(agent._vehicle.get_location())
-    end_waypoint = agent._map.get_waypoint(destination.location)
+    # start_waypoint = agent._map.get_waypoint(agent._vehicle.get_location())
+    # end_waypoint = agent._map.get_waypoint(destination.location)
+    if random.random() < 0.5:
+        junction = True
+    else:
+        junction = False
     while True:
-        new_destination = destination
+        # new_destination = destination
         # route_trace = agent._trace_route(start_waypoint, end_waypoint)
-        route_trace = get_reference_route(town_map, vehicle, 500, 0.02)
+        route_trace = get_reference_route(town_map, vehicle, 30, 0.02)
+        # if junction:
+        #     is_wande = False
+        #     print("wande")
+        #     for index in range(len(route_trace)-1):
+        #         if route_trace[index][0].transform.rotation.yaw != route_trace[index+1][0].transform.rotation.yaw:
+        #             is_wande = True
+        #             break
+        #     if is_wande == False:
+        #         continue
         route_trace_list = []
         dist = 0.
 
         road_ids = [route_trace[0][0].road_id]
         continue_flag = False
         for i in range(len(route_trace)-1):
-            road_id = route_trace[i][0].road_id  #会卡？
+            road_id = route_trace[i][0].road_id  #会卡？ #解决
             if road_id != road_ids[-1]:
                 if road_id in road_ids:
                     continue_flag = True
@@ -65,7 +78,7 @@ def draw_route(town_map, vehicle, agent, destination, origin_map, spawn_points):
             route_trace_list.append(x)
             route_trace_list.append(y)
 
-        if (dist < 50):
+        if (dist < 5):
             destination = random.choice(spawn_points)
             end_waypoint = agent._map.get_waypoint(destination.location)
         else:

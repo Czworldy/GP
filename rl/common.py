@@ -57,7 +57,7 @@ class GaussianExploration(object):
         self.sigma = self.sigma*0.9997 #0.9997 #0.99998
         self.sigma = max(self.sigma, self.min_sigma)
         noise = np.random.normal(size=len(action)) * self.sigma
-        noise = np.clip(noise, -0.05*np.ones(64), 0.05*self.high)
+        noise = np.clip(noise, -0.1*np.ones(64), 0.1*np.ones(64))
         action = action + noise
         return np.clip(action, self.low, self.high)
 

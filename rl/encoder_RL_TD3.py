@@ -58,7 +58,7 @@ class TD3():
         np.random.seed(self.seed)
 
         self.noise = GaussianExploration(
-            gym.spaces.Box(low=-np.ones(64), high=np.ones(64), dtype=np.float32),
+            gym.spaces.Box(low=-5*np.ones(64), high=5*np.ones(64), dtype=np.float32),
             max_sigma=0.5, min_sigma=0.05,
             decay_period=self.noise_decay_steps)
         
