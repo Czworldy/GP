@@ -96,7 +96,7 @@ save_path = '/media/wang/DATASET/CARLA/town01/'+str(data_index)+'/'
 
 encoder = EncoderWithV(input_dim=6, out_dim=args.vector_dim).to(device)
 # encoder.load_state_dict(torch.load('encoder.pth'))
-encoder.load_state_dict(torch.load('/home/cz/Downloads/learning-uncertainty-master/scripts/encoder.pth'))
+encoder.load_state_dict(torch.load('/home/cz/Downloads/learning-uncertainty-master/scripts/encoder_e2e.pth'))
 encoder.eval()
 generator = Generator(input_dim=1+1+args.vector_dim, output=2).to(device)
 # generator.load_state_dict(torch.load('generator.pth'))
@@ -207,6 +207,7 @@ def get_traj(plan_time, global_img, global_nav):
     # print("input_img shape:", input_img.shape)
 
     single_latent = encoder(input_img, v_0)
+    # print(single_latent)
     single_latent = single_latent.unsqueeze(1)
     latent = single_latent.expand(1, points_num, single_latent.shape[-1])
     latent = latent.reshape(1 * points_num, single_latent.shape[-1])
@@ -239,6 +240,14 @@ def get_traj(plan_time, global_img, global_nav):
     ay = ay.data.cpu().numpy()
     a = a.data.cpu().numpy()
     #var = np.sqrt(np.exp(log_var))
+
+    plt.cla()
+    plt.title("trajectory") 
+    plt.plot(x,y,'b-+')
+    # plt.show()
+    plt.axis('equal')
+    plt.pause(0.001)
+    print('show!')
     
     #state0 = cu.getActorState('odom', plan_time, global_vehicle)
     #time.sleep(0.1)
@@ -252,7 +261,8 @@ def make_plan():
         # 1. get cGAN result
 
         global_trajectory = get_traj(plan_time, global_img, global_nav)
-
+        print("new plan")
+        time.sleep(0.3)
         if not start_control:
             start_control = True
         # time.sleep(1)

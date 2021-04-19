@@ -106,12 +106,12 @@ class CARLAEnv(gym.Env):
 
             if self.global_dict['collision']:
                 self.done = True
-                self.reward -= 50.  #-50
+                self.reward -= 7.  #-50
                 print('collision !')
                 break
             if close2dest(self.vehicle, self.destination):
                 self.done = True
-                # self.reward += 10.   # reward += 100
+                self.reward += 10.   # reward += 100
                 print('Success !')
                 break
             
@@ -141,12 +141,12 @@ class CARLAEnv(gym.Env):
                 lane_reward = 0.7 - lane_offset
                 
             elif lane_offset > 1.8 and lane_offset <= 3.3:
-                lane_reward = 3*(0.6 - lane_offset)
+                lane_reward = 2*(0.6 - lane_offset)
             elif lane_offset > 3.3:
                 print('off line!')
                 self.done = True
                 lane_reward = 0
-                self.reward -= 25
+                self.reward -= 5
             else:
                 lane_reward = 0
                 
@@ -232,15 +232,16 @@ class CARLAEnv(gym.Env):
         # yujiyu
         start_point = self.spawn_points[1]  #1
         self.vehicle.set_transform(start_point)
-        for i in range(10):
+        self.vehicle.set_velocity(carla.Vector3D(x=0.0, y=0.0, z=0.0))
+        for _ in range(10):
             self.world.tick()
 
-        ref_route = get_reference_route(self.world_map, self.vehicle, 500, 0.05)
+        ref_route = get_reference_route(self.world_map, self.vehicle, 50, 0.02)
         self.destination = ref_route[-1][0].transform
         
 
         
-        self.global_dict['plan_map'], self.destination = replan(self.agent, self.destination, copy.deepcopy(self.origin_map), self.spawn_points, ref_route)
+        self.global_dict['plan_map'], self.destination, ref_route= replan(self.world_map, self.vehicle, self.agent, self.destination, copy.deepcopy(self.origin_map), self.spawn_points)
         
         show_plan = cv2.cvtColor(np.asarray(self.global_dict['plan_map']), cv2.COLOR_BGR2RGB)
         cv2.namedWindow('plan_map', 0)    
@@ -256,7 +257,7 @@ class CARLAEnv(gym.Env):
         self.route_trace = ref_route
         start_point.rotation = self.route_trace[0][0].transform.rotation
         self.vehicle.set_transform(start_point)
-        for i in range(10):
+        for _ in range(10):
             self.world.tick()
 
         self.state = copy.deepcopy(self.global_dict['img_nav'])

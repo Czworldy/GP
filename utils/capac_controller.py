@@ -85,16 +85,16 @@ class CapacController(object):
         throttle += 0.7#15
         throttle = np.clip(throttle, 0., 1.)
         # print(throttle, brake)
-        if brake > 0.:
-            throttle = 0.
+
+        # if brake > 0.:
+        #     throttle = 0.
         #throttle = throttle/(1+abs(steer))
-        
+ 
         #if throttle > 0 and abs(global_vel) < 0.8 and abs(v_r) < 1.0:
         # if throttle > 0 and abs(current_state.v) < 0.3 and abs(target_state.v) < 0.3:
         #     throttle = 0.
         #     brake = 1.
         #     steer = 0.
-
         return carla.VehicleControl(throttle=throttle, brake=brake, steer=steer)
     
 

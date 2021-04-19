@@ -6,6 +6,7 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 class ReplayBuffer:
     def __init__(self, capacity):
         self.capacity = int(capacity)
+        # self.buffer = np.empty((capacity,), )
         self.buffer = []
         self.position = 0
     
@@ -44,7 +45,7 @@ class NormalizedActions(gym.ActionWrapper):
         return action
 
 class GaussianExploration(object):
-    def __init__(self, action_space, max_sigma=1.0, min_sigma=0.01, decay_period=1e4):
+    def __init__(self, action_space, max_sigma=0.3, min_sigma=0.01, decay_period=1e4):
         self.low  = action_space.low
         self.high = action_space.high
         self.sigma = max_sigma
@@ -54,10 +55,10 @@ class GaussianExploration(object):
     
     def get_action(self, action, t=0):
         #sigma  = self.max_sigma - (self.max_sigma - self.min_sigma) * min(1.0, t / self.decay_period)
-        self.sigma = self.sigma*0.9997 #0.9997 #0.99998
+        self.sigma = self.sigma*0.99995 #0.9997 #0.99998
         self.sigma = max(self.sigma, self.min_sigma)
-        noise = np.random.normal(size=len(action)) * self.sigma
-        noise = np.clip(noise, -0.1*np.ones(64), 0.1*np.ones(64))
+        noise = 1.5*np.random.normal(size=len(action)) * self.sigma
+        # noise = np.clip(noise, -0.7*np.ones(64), 0.7*np.ones(64))
         action = action + noise
         return np.clip(action, self.low, self.high)
 

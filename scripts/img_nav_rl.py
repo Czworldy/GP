@@ -26,6 +26,7 @@ import carla_utils as cu
 from utils import GlobalDict
 from utils.gym_wrapper_img_nav import CARLAEnv
 from rl.encoder_RL_TD3 import TD3
+import psutil
 
 import os
 import cv2
@@ -81,7 +82,7 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 # device = torch.device('cpu')
 
 parser = argparse.ArgumentParser(description='Params')
-parser.add_argument('--name', type=str, default="rl-train-img-nav-07-valuetrain", help='name of the script')
+parser.add_argument('--name', type=str, default="traj_reward_02", help='name of the script') #12 加大了noise的方差traj_reward_01_v
 parser.add_argument('-d', '--data', type=int, default=1, help='data index')
 parser.add_argument('-s', '--save', type=bool, default=False, help='save result')
 parser.add_argument('--width', type=int, default=400, help='image width')
@@ -91,7 +92,7 @@ parser.add_argument('--max_t', type=float, default=3., help='max time')
 parser.add_argument('--vector_dim', type=int, default=64, help='vector dim')
 parser.add_argument('--max_speed', type=float, default=10., help='max speed')
 parser.add_argument('--scale', type=float, default=25., help='longitudinal length')
-parser.add_argument('--dt', type=float, default=0.01, help='discretization minimum time interval')
+parser.add_argument('--dt', type=float, default=0.05, help='discretization minimum time interval')
 parser.add_argument('--rnn_steps', type=int, default=10, help='rnn readout steps')
 args = parser.parse_args()
 
@@ -101,19 +102,21 @@ save_path = '/media/wang/DATASET/CARLA/town01/'+str(data_index)+'/'
 log_path = '/home/cz/result/log/'+args.name+'/'
 ckpt_path = '/home/cz/result/saved_models/%s' % args.name
 logger = SummaryWriter(log_dir=log_path)
-
-model = TD3(args=args,buffer_size=1e5, noise_decay_steps=3e3, batch_size=32, logger=logger, policy_freq=2, is_fix_policy_net=True) #48 85
+generator = Generator(input_dim=1+1+args.vector_dim, output=2).to(device)
+model = TD3(args=args,buffer_size=1e5, noise_decay_steps=3e3, batch_size=64, logger=logger, policy_freq=5, is_fix_policy_net=False) #48 85
 # encoder = EncoderWithV(input_dim=6, out_dim=args.vector_dim).to(device)
 try:
-    model.policy_net.load_state_dict(torch.load('/home/cz/Downloads/learning-uncertainty-master/scripts/encoder.pth'))
+    model.policy_net.load_state_dict(torch.load('/home/cz/Downloads/learning-uncertainty-master/scripts/encoder_77000.pth'))
     # model.policy_net.load_state_dict(torch.load('/home/cz/result/saved_models/rl-train-img-nav-04-train/115_policy_net.pkl'))
-    # model.value_net1.load_state_dict(torch.load('/home/cz/result/saved_models/rl-train-img-nav-06-valuetrain/160_value_net1.pkl'))
-    # model.value_net2.load_state_dict(torch.load('/home/cz/result/saved_models/rl-train-img-nav-06-valuetrain/160_value_net2.pkl'))
+    model.value_net1.load_state_dict(torch.load('/home/cz/result/saved_models/test/200_value_net1.pkl'))
+    model.value_net2.load_state_dict(torch.load('/home/cz/result/saved_models/test/200_value_net2.pkl'))
+    generator.load_state_dict(torch.load('/home/cz/Downloads/learning-uncertainty-master/scripts/generator_carla.pth'))
     print("load success!")
 except:
     print("load failed!")
-generator = Generator(input_dim=1+1+args.vector_dim, output=2).to(device)
-generator.load_state_dict(torch.load('/home/cz/Downloads/learning-uncertainty-master/scripts/generator_e2e.pth'))
+    raise ValueError('load models failed')
+
+
 generator.eval()
 
 
@@ -154,6 +157,7 @@ def image_callback(data):
     global_dict['nav'] = get_nav(global_dict['vehicle'], global_dict['plan_map'])
     img = Image.fromarray(cv2.cvtColor(global_dict['img'],cv2.COLOR_BGR2RGB))
     nav = Image.fromarray(cv2.cvtColor(global_dict['nav'],cv2.COLOR_BGR2RGB))
+    # nav = Image.fromarray(cv2.flip(cv2.cvtColor(global_dict['nav'],cv2.COLOR_BGR2RGB),1))
     img = img_trans(img)
     nav = img_trans(nav)
     # global_dict['img_nav'] = torch.cat((img, nav), 0).unsqueeze(0).to(device)
@@ -324,7 +328,7 @@ def main():
 
     settings = world.get_settings()
     settings.synchronous_mode = True
-    settings.fixed_delta_seconds = 0.01
+    settings.fixed_delta_seconds = 0.05
     world.apply_settings(settings)
     
     blueprint = world.get_blueprint_library()
@@ -383,8 +387,9 @@ def main():
     max_steps = 1e9
     total_steps = 0
     max_episode_steps = 1000
-    learning_starts = 64  #2000
+    learning_starts = 1000  #2000
     episode_num = 0
+    start_train = False
 
     while total_steps < max_steps:
         print("total_episode:", episode_num)
@@ -402,8 +407,8 @@ def main():
         global_dict['state0'].z = global_transform.location.z
         global_dict['state0'].theta = np.deg2rad(global_transform.rotation.yaw)
 
-        add_noise = True if random.random() < 0.2 else False
-
+        add_noise = True if random.random() < 0.6 else False
+        print("add noise:",add_noise)
         for step in range(max_episode_steps):
             # t = torch.arange(0, 0.99, args.dt).unsqueeze(1).to(device)
             # t.requires_grad = True
@@ -413,6 +418,8 @@ def main():
             # v = global_dict['v0'] if global_dict['v0'] > 4 else 4
             # v_0 = torch.FloatTensor([v/args.max_speed]).unsqueeze(1)
             # v_0 = v_0.to(device)
+            if state['v0'] < 4:
+                state['v0'] == 4
 
             condition = torch.FloatTensor([state['v0']/args.max_speed]*points_num).view(-1, 1)
             condition = condition.to(device)
@@ -425,7 +432,7 @@ def main():
 
             if add_noise:
                 action = model.noise.get_action(action)
-
+            # print(action)
             x_last = global_transform.location.x
             y_last = global_transform.location.y
 
@@ -444,10 +451,14 @@ def main():
             total_driving_metre += driving_metre_in_step 
 
             model.replay_buffer.push(state, action, reward, next_state, done)
+            # print(sys.getsizeof(model.replay_buffer.buffer))
+            # print(u'当前进程的内存使用：%.4f GB' % (psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024 / 1024) )            
+            
             if len(model.replay_buffer) > max(learning_starts, model.batch_size):
+                start_train = True
                 print("Start Train:")
                 # time_s = time.time()
-                model.train_step(total_steps, noise_std = 0.1, noise_clip = 0.2) #noise_std = 0.2 noise_clip = 0.5
+                model.train_step(total_steps, noise_std = 0.5, noise_clip = 2) #noise_std = 0.2 noise_clip = 0.5
                 # time_e = time.time()
                 # print('time:', time_e - time_s)
             
@@ -463,12 +474,13 @@ def main():
                 #        model.train_step(total_steps, noise_std = 0.1, noise_clip=0.25)
                 
                 # print(len(model.replay_buffer))
-                if episode_reward > 50:
-                    print('Success')
-                else:
-                    print('Fail')
+                print("episode_reward:%.2f" % (episode_reward))
+                # if episode_reward > 50:
+                #     print('Success')
+                # else:
+                #     print('Fail')
                 # last_episode_reward = episode_reward
-                if episode_num % 20 == 0:
+                if episode_num % 20 == 0 and start_train == True:
                     model.save(directory=ckpt_path, filename=str(episode_num)) 
                 break
   

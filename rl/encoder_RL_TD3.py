@@ -59,7 +59,7 @@ class TD3():
 
         self.noise = GaussianExploration(
             gym.spaces.Box(low=-5*np.ones(64), high=5*np.ones(64), dtype=np.float32),
-            max_sigma=0.5, min_sigma=0.05,
+            max_sigma=0.5, min_sigma=0.01,
             decay_period=self.noise_decay_steps)
         
         action_dim = 64
@@ -83,8 +83,8 @@ class TD3():
         
         self.value_criterion = nn.MSELoss()
         
-        policy_lr = 1e-5
-        value_lr  = 1e-5
+        policy_lr = 1e-4
+        value_lr  = 1e-4
         
         # self.value_optimizer1 = optim.SGD(self.value_net1.parameters(), lr=value_lr, momentum=0.9, weight_decay=5e-4)
         # self.value_optimizer2 = optim.SGD(self.value_net2.parameters(), lr=value_lr, momentum=0.9, weight_decay=5e-4)
@@ -127,6 +127,7 @@ class TD3():
         # lis = [item['v0']/self.args.max_speed for item in state]
         # print(lis)
         state_img      = torch.cat([item['img_nav'].unsqueeze(0) for item in state], dim=0).to(device)
+        # print(state)
         # print(state_img.shape)
         # state_img      = state_img.unsqueeze(0).to(device)
         # state_img      = state['img_nav'].unsqueeze(0).to(device)
@@ -144,9 +145,9 @@ class TD3():
     
         next_action = self.target_policy_net(next_state_img, next_state_v0)
         noise = torch.normal(torch.zeros(next_action.size()), noise_std).to(device)
-        noise = torch.clamp(noise, -noise_clip, noise_clip)
+        # noise = torch.clamp(noise, -noise_clip, noise_clip)
         next_action += noise
-        next_action = torch.clamp(next_action, -0.99, 0.99)
+        next_action = torch.clamp(next_action, -5, 5) ######!!!!!!
     
         target_q_value1  = self.target_value_net1(next_state_img, next_state_v0, next_action)
         target_q_value2  = self.target_value_net2(next_state_img, next_state_v0, next_action)

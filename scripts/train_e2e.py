@@ -264,13 +264,14 @@ def main():
         global_dict['state0'].theta = np.deg2rad(global_transform.rotation.yaw)
 
 
-
+        add_noise = True if random.random() < 0.5 else False
         for step in range(max_episode_steps):
-
-            action = model.policy_net(state)
+            
+            state_tensor = state.unsqueeze(0).to(device)
+            action = model.policy_net(state_tensor)
             action = action.detach().cpu().numpy()[0]
 
-            add_noise = True if random.random() < 0.3 else False
+            
             if add_noise:
                 action = model.noise.get_action(action)
 
@@ -295,7 +296,7 @@ def main():
             if len(model.replay_buffer) > max(learning_starts, model.batch_size):
                 print("Start Train")
                 # time_s = time.time()
-                model.train_step(total_steps, noise_std = 0.05, noise_clip = 0.05) #noise_std = 0.2 noise_clip = 0.5
+                model.train_step(total_steps, noise_std = 0.2, noise_clip = 0.3) #noise_std = 0.2 noise_clip = 0.5
                 # time_e = time.time()
                 # print('time:', time_e - time_s)
             
