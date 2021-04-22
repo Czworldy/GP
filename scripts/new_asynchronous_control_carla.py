@@ -96,11 +96,11 @@ save_path = '/media/wang/DATASET/CARLA/town01/'+str(data_index)+'/'
 
 encoder = EncoderWithV(input_dim=6, out_dim=args.vector_dim).to(device)
 # encoder.load_state_dict(torch.load('encoder.pth'))
-encoder.load_state_dict(torch.load('/home/cz/Downloads/learning-uncertainty-master/scripts/encoder_e2e.pth'))
+encoder.load_state_dict(torch.load('/home/cz/Downloads/learning-uncertainty-master/scripts/encoder_77000.pth'))
 encoder.eval()
 generator = Generator(input_dim=1+1+args.vector_dim, output=2).to(device)
 # generator.load_state_dict(torch.load('generator.pth'))
-generator.load_state_dict(torch.load('/home/cz/Downloads/learning-uncertainty-master/scripts/generator_e2e.pth'))
+generator.load_state_dict(torch.load('/home/cz/Downloads/learning-uncertainty-master/scripts/generator_carla.pth'))
 generator.eval()
 
 

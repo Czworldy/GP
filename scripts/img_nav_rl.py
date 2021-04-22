@@ -82,7 +82,7 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 # device = torch.device('cpu')
 
 parser = argparse.ArgumentParser(description='Params')
-parser.add_argument('--name', type=str, default="traj_reward_02", help='name of the script') #12 加大了noise的方差traj_reward_01_v
+parser.add_argument('--name', type=str, default="traj_reward_04", help='name of the script') #12 加大了noise的方差traj_reward_01_v
 parser.add_argument('-d', '--data', type=int, default=1, help='data index')
 parser.add_argument('-s', '--save', type=bool, default=False, help='save result')
 parser.add_argument('--width', type=int, default=400, help='image width')
@@ -103,14 +103,14 @@ log_path = '/home/cz/result/log/'+args.name+'/'
 ckpt_path = '/home/cz/result/saved_models/%s' % args.name
 logger = SummaryWriter(log_dir=log_path)
 generator = Generator(input_dim=1+1+args.vector_dim, output=2).to(device)
-model = TD3(args=args,buffer_size=1e5, noise_decay_steps=3e3, batch_size=64, logger=logger, policy_freq=5, is_fix_policy_net=False) #48 85
+model = TD3(args=args,buffer_size=1e5, noise_decay_steps=3e3, batch_size=64, logger=logger, policy_freq=5, is_fix_policy_net=True) #48 85
 # encoder = EncoderWithV(input_dim=6, out_dim=args.vector_dim).to(device)
 try:
-    model.policy_net.load_state_dict(torch.load('/home/cz/Downloads/learning-uncertainty-master/scripts/encoder_77000.pth'))
+    model.policy_net.load_state_dict(torch.load('/home/cz/Downloads/learning-uncertainty-master/scripts/encoder_e2e.pth'))
     # model.policy_net.load_state_dict(torch.load('/home/cz/result/saved_models/rl-train-img-nav-04-train/115_policy_net.pkl'))
-    model.value_net1.load_state_dict(torch.load('/home/cz/result/saved_models/test/200_value_net1.pkl'))
-    model.value_net2.load_state_dict(torch.load('/home/cz/result/saved_models/test/200_value_net2.pkl'))
-    generator.load_state_dict(torch.load('/home/cz/Downloads/learning-uncertainty-master/scripts/generator_carla.pth'))
+    model.value_net1.load_state_dict(torch.load('/home/cz/result/saved_models/test/120_value_net1.pkl'))
+    model.value_net2.load_state_dict(torch.load('/home/cz/result/saved_models/test/120_value_net2.pkl'))
+    generator.load_state_dict(torch.load('/home/cz/Downloads/learning-uncertainty-master/scripts/generator_e2e.pth'))
     print("load success!")
 except:
     print("load failed!")
@@ -407,7 +407,7 @@ def main():
         global_dict['state0'].z = global_transform.location.z
         global_dict['state0'].theta = np.deg2rad(global_transform.rotation.yaw)
 
-        add_noise = True if random.random() < 0.6 else False
+        add_noise = True if random.random() < 0.0 else False
         print("add noise:",add_noise)
         for step in range(max_episode_steps):
             # t = torch.arange(0, 0.99, args.dt).unsqueeze(1).to(device)
